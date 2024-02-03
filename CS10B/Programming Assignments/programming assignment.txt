@@ -1,0 +1,199 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+
+//#include <cstdio>
+//#include <cstring>
+//#include <sstream>
+ 
+using namespace std;
+ 
+void   readData(const string& dataFileName, vector<double>& flightPathAngles, vector<double>& coefficients);
+double interpolation(double flightPathAngle, const vector<double>& flightPathAngles, const vector<double>& coefficients);
+bool   isOrdered(const vector<double>& flightPathAngles);
+void   reorder(vector<double>& flightPathAngles, vector<double>& coefficients);
+void   swap(vector<double>& data, int one, int two);
+ 
+int main()
+{
+    string dataFileName;
+ 
+    cout << "Please enter the wind tunnel file data." << endl;
+ 
+    cin >> dataFileName;
+ 
+    vector<double> flightPathAngles;
+    vector<double> coefficients;
+ 
+    readData(dataFileName, flightPathAngles, coefficients);
+ 
+    cout << "The original data is:" << endl;
+    cout << endl;
+ 
+    for (size_t i = 0; i < flightPathAngles.size(); i++)
+    {
+        cout << flightPathAngles[i] << "    " << coefficients[i] << endl;
+    }
+ 
+    cout << endl;
+ 
+    if (!isOrdered(flightPathAngles))
+    {
+        cout << "order the data now..." << endl;
+ 
+        reorder(flightPathAngles, coefficients);
+ 
+        cout << "After the order, the data is:" << endl;
+ 
+        for (size_t i = 0; i < flightPathAngles.size(); i++)
+        {
+            cout << flightPathAngles[i] << "    " << coefficients[i] << endl;
+        }
+ 
+        cout << endl;
+    }
+ 
+    while (true)
+    {
+        double flightPathAngle;
+ 
+        cout << "Please enter one flight-path angle" << endl;
+ 
+        cin >> flightPathAngle;
+ 
+         if (flightPathAngle < flightPathAngles[0] || flightPathAngle > flightPathAngles[flightPathAngles.size() - 1])
+        {
+            cout << "flight-path angle: "
+                 << flightPathAngle
+                 << " is not in the data range: "
+                 << flightPathAngles[0]
+                 << ", "
+                 << flightPathAngles[flightPathAngles.size() - 1] << endl;
+ 
+            cout << "please try again" << endl;
+            continue;
+        }
+ 
+        double coefficient = interpolation(flightPathAngle, flightPathAngles, coefficients);
+ 
+        cout << "The coefficient for flight-path angle: " << flightPathAngle << " is:   " << coefficient << endl;
+ 
+        string answer;
+ 
+        cout << "Do you want to enter another flight-path angle?" << endl;
+        cin >> answer;
+ 
+        if (answer == "Yes") {
+            continue;
+        }
+        else {
+            return 0;
+        }
+    }
+ 
+    return 0;
+}
+ 
+void readData(const string& dataFileName, vector<double>& flightPathAngles, vector<double>& coefficients) {
+    ifstream datafile(dataFileName.c_str());
+ 
+    if (!datafile) {
+        cerr << "Data file: " << dataFileName << " does not exist, exit now" << endl;
+        exit(1);
+    }
+ 
+    const int lineLen = 1024;
+    char line[lineLen];
+    double flightPathAngle;
+    double coefficient;
+ 
+    memset(line, '\0', lineLen);
+ 
+    while (datafile.getline(line, lineLen)) {
+        string lineStr(line);
+ 
+        stringstream ss(lineStr);
+ 
+        ss >> flightPathAngle >> coefficient;
+ 
+        flightPathAngles.push_back(flightPathAngle);
+        coefficients.push_back(coefficient);
+ 
+        memset(line, '\0', lineLen);
+    }
+}
+ 
+double interpolation(double flightPathAngle, const vector<double>& flightPathAngles, const vector<double>& coefficients) {
+    size_t a = 0;
+    size_t c = 0;
+ 
+    if (flightPathAngle < flightPathAngles[0]) {
+        cerr << "flightPathAngle: " << flightPathAngle << " is less than min value in the data" << endl;
+        return 0.0;
+    }
+ 
+    if (flightPathAngle > flightPathAngles[flightPathAngles.size() - 1]) {
+        cerr << "flightPathAngle: " << flightPathAngle << " is larger than max value in the data" << endl;
+        return 0.0;
+    }
+  for (size_t i = 0; i < flightPathAngles.size(); i++) {
+        if (flightPathAngles[i] < flightPathAngle) {
+            a = i;
+            continue;
+        }
+        // flight path already exists in the data.
+        //
+        if (flightPathAngle == flightPathAngles[i]) {
+            return coefficients[i];
+        }
+        if (flightPathAngles[i] > flightPathAngle)  {
+            c = i;
+            break;
+        }
+    }
+    double coefficient = coefficients[a] + (flightPathAngle - flightPathAngles[a]) / (flightPathAngles[c] - flightPathAngles[a]) * (coefficients[c] - coefficients[a]);
+    return coefficient;
+}
+bool isOrdered(const vector<double>& flightPathAngles) {
+    if (flightPathAngles.size() < 2) {
+        return true;
+    }
+    double first = flightPathAngles[0];
+    double second;
+    for (size_t i = 1; i < flightPathAngles.size(); i++)  {
+        second = flightPathAngles[i];
+        if (second < first) {
+            return false;
+        }
+        first = second;
+    }
+    return true;
+}
+void reorder(vector<double>& flightPathAngles, vector<double>& coefficients) {
+    size_t out_idx;
+    size_t in_idx;
+    size_t min_idx;
+    size_t size = flightPathAngles.size();
+
+    for (out_idx = 0; out_idx < size - 1; out_idx++)  // outer loop {
+        min_idx = out_idx;
+        for (in_idx = out_idx + 1; in_idx < size; in_idx++)  // inner loop {
+            if (flightPathAngles[in_idx] < flightPathAngles[min_idx]) {
+                min_idx = in_idx;
+            }
+        }
+        // swap to reorder
+        swap(flightPathAngles, out_idx, min_idx);
+        swap(coefficients, out_idx, min_idx);
+    }
+}
+ 
+void swap(vector<double>& data, int one, int two)
+{
+    double temp = data[one];
+    data[one] = data[two];
+    data[two] = temp;
+}
+ 
+
